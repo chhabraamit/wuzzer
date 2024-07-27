@@ -15,12 +15,17 @@ type IndexedLine struct {
 }
 
 type FileIndex struct {
-	Lines []IndexedLine
+	Lines             []IndexedLine
+	ScannedDirs       []string
+	SkippedDirs       []string
+	TotalFilesScanned int
 }
 
 func NewFileIndex() *FileIndex {
 	return &FileIndex{
-		Lines: make([]IndexedLine, 0),
+		Lines:       make([]IndexedLine, 0),
+		ScannedDirs: make([]string, 0),
+		SkippedDirs: make([]string, 0),
 	}
 }
 
@@ -31,8 +36,10 @@ func (fi *FileIndex) IndexDirectory(root string, patterns []string) error {
 		}
 		if info.IsDir() {
 			if shouldSkipDirectory(path) {
+				fi.SkippedDirs = append(fi.SkippedDirs, path)
 				return filepath.SkipDir
 			}
+			fi.ScannedDirs = append(fi.ScannedDirs, path)
 			return nil
 		}
 		if len(patterns) > 0 && !matchesAnyPattern(path, patterns) {
@@ -66,6 +73,7 @@ func (fi *FileIndex) indexFile(path string) error {
 		return fmt.Errorf("error scanning file %s: %v", path, err)
 	}
 
+	fi.TotalFilesScanned++
 	return nil
 }
 
@@ -86,7 +94,7 @@ func shouldSkipDirectory(path string) bool {
 	}
 
 	// Skip Go standard library and common build directories
-	skippedDirs := []string{"go", "pkg", "node_modules", "vendor", "build", "dist", "env"}
+	skippedDirs := []string{"go", "pkg", "node_modules", "vendor", "build", "dist"}
 	for _, dir := range skippedDirs {
 		if base == dir {
 			return true
@@ -94,4 +102,24 @@ func shouldSkipDirectory(path string) bool {
 	}
 
 	return false
+}
+
+func (fi *FileIndex) PrintStats() {
+	fmt.Printf("Total files scanned: %d\n", fi.TotalFilesScanned)
+	fmt.Printf("Total lines indexed: %d\n", len(fi.Lines))
+	fmt.Printf("Scanned directories: %d\n", len(fi.ScannedDirs))
+	fmt.Printf("Skipped directories: %d\n", len(fi.SkippedDirs))
+
+	fmt.Println("\nTop 10 scanned directories:")
+	for i, dir := range fi.ScannedDirs {
+		if i >= 10 {
+			break
+		}
+		fmt.Printf("  %s\n", dir)
+	}
+
+	fmt.Println("\nSkipped directories:")
+	for _, dir := range fi.SkippedDirs {
+		fmt.Printf("  %s\n", dir)
+	}
 }

@@ -73,6 +73,8 @@ func main() {
 		return
 	}
 
+	index.PrintStats()
+
 	fmt.Printf("Indexed %d lines\n", len(index.Lines))
 
 	for {
