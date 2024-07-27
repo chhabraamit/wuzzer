@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"chhabra.com/wuzzer/fuzzymatcher"
+	"chhabra.com/wuzzer/indexer"
 	"fmt"
 	"os"
 	"strings"
@@ -32,26 +33,37 @@ func printBoldMatches(line string, matchedWords []string) {
 }
 
 func main() {
-	fmt.Println("Enter the search query:")
-	query, _ := bufio.NewReader(os.Stdin).ReadString('\n')
-	query = strings.TrimSpace(query)
+	rootDir := "/Users/chhabra/temple/wuzzer"
 
-	fmt.Println("Enter the webpage content (type 'EOF' on a new line when finished):")
-	var lines []string
-	scanner := bufio.NewScanner(os.Stdin)
-	for scanner.Scan() {
-		line := scanner.Text()
-		if line == "EOF" {
-			break
-		}
-		lines = append(lines, line)
+	patterns := []string{"*.go", "*.txt", "*.md"}
+
+	index := indexer.NewFileIndex()
+	err := index.IndexDirectory(rootDir, patterns)
+	if err != nil {
+		fmt.Printf("Error indexing directory: %v\n", err)
+		return
 	}
 
-	matches := fuzzymatcher.FuzzyMatch(query, lines)
+	fmt.Printf("Indexed %d lines\n", len(index.Lines))
 
-	fmt.Printf("\nSearch results for query '%s':\n\n", query)
-	for i, match := range matches {
-		fmt.Printf("%d. (Score: %.2f) ", i+1, match.Score)
-		printBoldMatches(match.String, match.MatchedWords)
+	for {
+		fmt.Println("\nEnter a search query (or 'quit' to exit):")
+		query, _ := bufio.NewReader(os.Stdin).ReadString('\n')
+		query = strings.TrimSpace(query)
+
+		if query == "quit" {
+			break
+		}
+
+		matches := fuzzymatcher.FuzzyMatchIndexed(query, index)
+
+		fmt.Printf("\nSearch results for query '%s':\n\n", query)
+		for i, match := range matches {
+			if i >= 10 {
+				break // Limit to top 10 results
+			}
+			fmt.Printf("%d. (Score: %.2f) %s:%d\n", i+1, match.Score, match.IndexedLine.FilePath, match.IndexedLine.LineNumber)
+			printBoldMatches(match.IndexedLine.Content, match.MatchedWords)
+		}
 	}
 }
