@@ -2,8 +2,10 @@ package indexer
 
 import (
 	"bufio"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 type IndexedLine struct {
@@ -28,6 +30,9 @@ func (fi *FileIndex) IndexDirectory(root string, patterns []string) error {
 			return err
 		}
 		if info.IsDir() {
+			if shouldSkipDirectory(path) {
+				return filepath.SkipDir
+			}
 			return nil
 		}
 		if len(patterns) > 0 && !matchesAnyPattern(path, patterns) {
@@ -40,11 +45,13 @@ func (fi *FileIndex) IndexDirectory(root string, patterns []string) error {
 func (fi *FileIndex) indexFile(path string) error {
 	file, err := os.Open(path)
 	if err != nil {
-		return err
+		return fmt.Errorf("error opening file %s: %v", path, err)
 	}
 	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
+	scanner.Buffer(make([]byte, 1024*1024), 1024*1024) // Increase buffer size to 1MB
+
 	lineNumber := 1
 	for scanner.Scan() {
 		fi.Lines = append(fi.Lines, IndexedLine{
@@ -54,7 +61,12 @@ func (fi *FileIndex) indexFile(path string) error {
 		})
 		lineNumber++
 	}
-	return scanner.Err()
+
+	if err := scanner.Err(); err != nil {
+		return fmt.Errorf("error scanning file %s: %v", path, err)
+	}
+
+	return nil
 }
 
 func matchesAnyPattern(path string, patterns []string) bool {
@@ -63,5 +75,23 @@ func matchesAnyPattern(path string, patterns []string) bool {
 			return true
 		}
 	}
+	return false
+}
+
+func shouldSkipDirectory(path string) bool {
+	// Skip hidden directories and some common directories we don't want to index
+	base := filepath.Base(path)
+	if strings.HasPrefix(base, ".") {
+		return true
+	}
+
+	// Skip Go standard library and common build directories
+	skippedDirs := []string{"go", "pkg", "node_modules", "vendor", "build", "dist", "env"}
+	for _, dir := range skippedDirs {
+		if base == dir {
+			return true
+		}
+	}
+
 	return false
 }
