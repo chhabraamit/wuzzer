@@ -12,7 +12,7 @@ type IndexedLine struct {
 	Content    string
 }
 
-qtype FileIndex struct {
+type FileIndex struct {
 	Lines []IndexedLine
 }
 

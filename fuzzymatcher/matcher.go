@@ -33,24 +33,35 @@ func matchWord(query, target string) bool {
 	return isPrefix(query, target)
 }
 
-// calculateScore computes the match score
 func calculateScore(queryTokens, targetTokens []string, matchedIndices []int) float64 {
-	score := float64(len(matchedIndices)) / float64(len(queryTokens))
+	// Base score: proportion of query words matched
+	baseScore := float64(len(matchedIndices)) / float64(len(queryTokens))
 
-	// Bonus for order preservation
+	// Increase the importance of matching more words
+	wordMatchBonus := baseScore * 0.5
+
+	// Small bonus for order preservation (less important now)
 	orderBonus := 0.0
 	for i := 1; i < len(matchedIndices); i++ {
 		if matchedIndices[i] > matchedIndices[i-1] {
-			orderBonus += 0.1
+			orderBonus += 0.01
 		}
 	}
-	score += orderBonus
 
-	// Penalty for extra words
-	extraWordsPenalty := float64(len(targetTokens)-len(queryTokens)) * 0.1
-	score = max(0.0, score-extraWordsPenalty)
+	// Penalty for extra words (slightly reduced)
+	extraWordsPenalty := float64(len(targetTokens)-len(queryTokens)) * 0.05
 
-	return score
+	// Combine scores
+	totalScore := baseScore + wordMatchBonus + orderBonus - extraWordsPenalty
+
+	return max(0.0, min(1.0, totalScore))
+}
+
+func min(a, b float64) float64 {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 func max(i float64, f float64) float64 {

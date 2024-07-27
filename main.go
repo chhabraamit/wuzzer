@@ -32,8 +32,37 @@ func printBoldMatches(line string, matchedWords []string) {
 	fmt.Println()
 }
 
+func testFuzzyMatcher() {
+	query := "red large apple"
+	targets := []string{
+		"apple water red hero large",
+		"red large water",
+		"big red apple",
+		"large green apple",
+		"red apple",
+	}
+
+	matches := fuzzymatcher.FuzzyMatch(query, targets)
+
+	fmt.Printf("Test results for query '%s':\n\n", query)
+	for i, match := range matches {
+		fmt.Printf("%d. (Score: %.2f) %s\n", i+1, match.Score, match.String)
+	}
+}
+
 func main() {
-	rootDir := "/Users/chhabra/temple/wuzzer"
+	var rootDir string
+	if len(os.Args) > 1 {
+		rootDir = os.Args[1]
+	} else {
+		var err error
+		rootDir, err = os.Getwd()
+		if err != nil {
+			fmt.Printf("Error getting current directory: %v\n", err)
+			return
+		}
+	}
+	fmt.Printf("Indexing directory: %s\n", rootDir)
 
 	patterns := []string{"*.go", "*.txt", "*.md"}
 
